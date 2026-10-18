@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="description" content="毎月の収支を入れると、働けなくなったときに足りない額まで出る計算ツールです。">
+<title>じぶんのキャッシュフロー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+html,body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<style>
+/* Layout: a column of thick-framed cards. Seven colour-coded expense groups hold ~40 line items, feeding one stacked bar and three "もしも" tiles. */
+:root{
+  --bg:#FFFBF2; --surface:#FFFFFF; --surface2:#FFF3DE; --surface3:#FFE5C2;
+  --ink:#332F2A; --muted:#6B635A; --faint:#8A8275;
+  --accent:#F5833F; --accent-ink:#B04E0F; --yellow:#FFC94D; --line:#332F2A;
+  --c1:#D96A1E; --c2:#3C6FD1; --c3:#A8780E; --c4:#00938A; --c5:#7B52B5; --c6:#4E8C3A; --c7:#CF4E7E;
+  --display:'Zen Maru Gothic','Hiragino Maru Gothic ProN',Verdana,sans-serif;
+  --body:'M PLUS Rounded 1c','Hiragino Maru Gothic ProN',Verdana,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#2A2622; --surface:#363029; --surface2:#403931; --surface3:#4A4136;
+  --ink:#FBF3E6; --muted:#C7BBA9; --faint:#A1968A;
+  --accent:#F5903F; --accent-ink:#FFBE84; --yellow:#FFD36B; --line:#FBF3E6;
+  --c1:#D86E25; --c2:#5A86DF; --c3:#BC8A18; --c4:#0FA596; --c5:#8E62C8; --c6:#5E9E46; --c7:#DB6189;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#2A2622; --surface:#363029; --surface2:#403931; --surface3:#4A4136;
+  --ink:#FBF3E6; --muted:#C7BBA9; --faint:#A1968A;
+  --accent:#F5903F; --accent-ink:#FFBE84; --yellow:#FFD36B; --line:#FBF3E6;
+  --c1:#D86E25; --c2:#5A86DF; --c3:#BC8A18; --c4:#0FA596; --c5:#8E62C8; --c6:#5E9E46; --c7:#DB6189;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;-webkit-text-size-adjust:100%}
+.wrap{max-width:900px;margin:0 auto;padding-inline:16px;padding-block:28px 56px;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(27px,6vw,40px);line-height:1.3;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:700;font-size:clamp(19px,3.4vw,25px);line-height:1.35;margin:0}
+h3{font-family:var(--display);font-weight:700;font-size:17px;line-height:1.3;margin:0}
+p{margin:0}
+.lede{color:var(--muted);font-weight:500}
+.eyebrow{font-weight:700;font-size:13px;letter-spacing:.14em;color:var(--accent-ink);margin:0 0 6px}
+.card{background:var(--surface);border:4px solid var(--line);border-radius:20px;padding:20px}
+.card.warm{background:var(--surface2)}
+.head{display:flex;flex-direction:column;gap:10px}
+.privacy{display:flex;gap:12px;align-items:flex-start;background:var(--surface3);border:3px solid var(--line);border-radius:16px;padding:12px 16px;font-size:14px;font-weight:500}
+.privacy b{font-weight:800}
+.rows{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.row.zero{display:none}
+.row label{flex:1 1 180px;min-width:0;font-weight:700;font-size:15px}
+.hint{display:block;font-weight:500;font-size:12.5px;color:var(--muted);line-height:1.45}
+.amt{display:flex;align-items:center;gap:6px;flex:none}
+input[type=number]{width:86px;font:800 18px/1 var(--body);color:var(--ink);background:var(--bg);border:3px solid var(--line);border-radius:12px;padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.unit{font-weight:700;font-size:14px;color:var(--muted)}
+.grp{border:3px solid var(--line);border-radius:16px;padding:14px 16px;background:var(--surface);border-left-width:12px}
+.grp+.grp{margin-top:12px}
+.ghead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ghead h3{flex:1 1 150px;min-width:0}
+.gsum{font-family:var(--display);font-weight:900;font-size:19px;font-variant-numeric:tabular-nums;flex:none}
+.chip{font:700 12.5px/1 var(--body);border:2.5px solid var(--line);border-radius:999px;padding:7px 12px;background:var(--surface2);color:var(--ink);cursor:pointer;flex:none}
+.chip[aria-pressed="true"]{background:var(--accent);color:#332F2A}
+.gnote{font-size:12.5px;color:var(--muted);font-weight:500;margin-top:6px}
+.sub{font-size:13.5px;color:var(--muted);font-weight:500;margin-top:10px}
+.bartop{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.total{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-top:3px solid var(--line);margin-top:16px;padding-top:12px;font-weight:800}
+.total .v{font-family:var(--display);font-weight:900;font-size:22px;font-variant-numeric:tabular-nums}
+.bar{display:flex;gap:2px;height:46px;border:3px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface2);margin-top:6px}
+.bar>span{display:block;min-width:3px;transition:flex-grow .25s ease}
+@media (prefers-reduced-motion:reduce){.bar>span{transition:none}}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px 16px;margin-top:14px}
+.lg{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.swatch{width:16px;height:16px;border-radius:5px;border:2px solid var(--line);flex:none}
+.lg .n{flex:1;min-width:0}
+.lg .v{font-variant-numeric:tabular-nums;font-weight:800}
+.lg .p{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums;width:44px;text-align:right}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px}
+.sp{border:3px solid var(--line);border-radius:16px;padding:12px 16px;background:var(--surface2)}
+.sp .k{font-size:13px;font-weight:700;color:var(--muted)}
+.sp .v{font-family:var(--display);font-weight:900;font-size:22px;font-variant-numeric:tabular-nums}
+.left{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--surface3);border:3px solid var(--line);border-radius:16px;padding:14px 18px;margin-top:12px}
+.left .big{font-family:var(--display);font-weight:900;font-size:clamp(23px,5vw,30px);font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));gap:14px;margin-top:16px}
+.tile{border:4px solid var(--line);border-radius:18px;padding:16px;background:var(--surface);display:flex;flex-direction:column;gap:8px;min-width:0}
+.tile.t1{background:var(--surface2)}.tile.t2{background:var(--surface3)}.tile.t3{background:var(--accent)}
+.tile .when{font-weight:800;font-size:14px;line-height:1.35}
+.tile.t3 .when,.tile.t3 .ln,.tile.t3 .big,.tile.t3 .cap{color:#332F2A}
+.tile .ln{display:flex;justify-content:space-between;gap:10px;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.tile .big{font-family:var(--display);font-weight:900;font-size:clamp(21px,4.4vw,27px);font-variant-numeric:tabular-nums;border-top:2.5px solid var(--line);padding-top:8px;margin-top:2px}
+.tile .cap{font-size:12px;font-weight:600;color:var(--muted)}
+.ok{color:var(--accent-ink)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+button.btn{font:800 14px/1 var(--body);border:3px solid var(--line);border-radius:999px;padding:11px 18px;background:var(--surface2);color:var(--ink);cursor:pointer}
+button.btn.primary{background:var(--yellow)}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-top:14px}
+.su{border:3px solid var(--line);border-radius:14px;padding:10px 14px;background:var(--surface);min-width:0}
+.su .k{font-size:12.5px;font-weight:700;color:var(--muted);line-height:1.4}
+.su .v{font-family:var(--display);font-weight:900;font-size:20px;font-variant-numeric:tabular-nums;line-height:1.3}
+.su.hi{background:var(--accent)}.su.hi .k,.su.hi .v{color:#332F2A}
+.su.soft{background:var(--surface3)}
+.saved{font-size:13px;font-weight:700;color:var(--accent-ink);margin-top:12px;min-height:1.5em}
+.notes{font-size:12.5px;color:var(--muted);font-weight:500;line-height:1.75}
+.notes b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <p class="eyebrow">毎月のお金の棚おろし</p>
+    <h1>じぶんのキャッシュフロー</h1>
+    <p class="lede">毎月のお金の出入りを入れると、<b>働けなくなったときに足りない額</b>まで出ます。関係ない行は0のままでOKです。</p>
+    <div class="privacy">
+      <span aria-hidden="true">🔒</span>
+      <span>入れた数字は<b>この端末の中だけ</b>に保存されます。誰にも送られませんし、画面共有しないかぎり他の人には見えません。</span>
+    </div>
+  </div>
+
+  <section class="card warm" aria-labelledby="h-in">
+    <p class="eyebrow">STEP 1</p>
+    <h2 id="h-in">毎月、入ってくるお金</h2>
+    <div class="rows">
+      <div class="row">
+        <label for="i-main">本業の手取り<span class="hint">毎月、口座に入る額。ボーナスは入れない</span></label>
+        <span class="amt"><input type="number" id="i-main" value="20" min="0" step="0.5" inputmode="decimal"><span class="unit">万円</span></span>
+      </div>
+      <div class="row">
+        <label for="i-side">副業の手取り<span class="hint">業務委託でもらっている分。月で変わるなら平均で</span></label>
+        <span class="amt"><input type="number" id="i-side" value="5" min="0" step="0.5" inputmode="decimal"><span class="unit">万円</span></span>
+      </div>
+      <div class="row">
+        <label for="i-gross">本業の額面<span class="hint">給与明細の総支給。手取りから自動で入るので、明細を見て直せばOK</span></label>
+        <span class="amt"><input type="number" id="i-gross" value="25.6" min="0" step="0.5" inputmode="decimal"><span class="unit">万円</span></span>
+      </div>
+    </div>
+    <div class="total"><span>入ってくるお金</span><span class="v" id="t-in">25.0万円</span></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-out">
+    <p class="eyebrow">STEP 2</p>
+    <h2 id="h-out">毎月、出ていくお金</h2>
+    <p class="sub">グレーの文字は<b>ひとり暮らしの目安</b>です。近い数字を入れて、違うところだけ直してください。グループ右のボタンは「働けなくなっても<b>止められるか</b>」。押すと切り替わります。</p>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" type="button" id="btn-fold" aria-pressed="false">0の行をたたむ</button>
+    </div>
+    <div id="groups" style="margin-top:14px"></div>
+    <div class="total"><span>出ていくお金</span><span class="v" id="t-out">24.8万円</span></div>
+  </section>
+
+  <section class="card warm" aria-labelledby="h-now">
+    <p class="eyebrow">いまの1ヶ月</p>
+    <h2 id="h-now">お金の内訳</h2>
+    <div class="bar" id="bar" role="img" aria-label="支出の内訳の帯グラフ"></div>
+    <div class="legend" id="legend"></div>
+    <div class="split">
+      <div class="sp"><p class="k">働けなくなっても止められない</p><p class="v" id="t-fixed">19.3万円</p></div>
+      <div class="sp"><p class="k">いざとなれば止められる</p><p class="v" id="t-stop">5.5万円</p></div>
+    </div>
+    <div class="left">
+      <span>入ってくるお金から出ていくお金を引くと</span>
+      <span class="big" id="t-left">+0.2万円</span>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-if">
+    <p class="eyebrow">STEP 3</p>
+    <h2 id="h-if">もし、働けなくなったら</h2>
+    <p class="sub">遊びも貯金も止めたとして、<b>止められない支出</b>だけが残ります。そこから国のお金を引いた差が、保険で埋める額です。</p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section class="card warm" aria-labelledby="h-sum">
+    <p class="eyebrow">持ち帰り</p>
+    <h2 id="h-sum">じぶんの結果</h2>
+    <p class="sub">このカードを<b>スクリーンショット</b>すれば、そのまま持ち帰れます。入れた数字はこの端末に自動で保存されているので、閉じても次に開いたとき残っています。</p>
+    <div class="sum" id="sum-now"></div>
+    <div class="sum" id="sum-gap"></div>
+    <p class="saved" id="saved" role="status" aria-live="polite"></p>
+    <div class="actions">
+      <button class="btn primary" type="button" id="btn-copy">結果をコピー</button>
+      <button class="btn" type="button" id="btn-reset">目安の数字に戻す</button>
+      <button class="btn" type="button" id="btn-clear">ぜんぶ空にする</button>
+    </div>
+  </section>
+
+  <p class="notes">
+    <b>このページからPDFとして保存することはできません。</b>スクリーンショットを撮るか、「結果をコピー」でメモアプリやトークに貼り付けてください。<br>
+    <b>金額はすべて目安です。</b>傷病手当金と障害年金は額面の月収をもとに決まります。傷病手当金は本業の額面のおよそ3分の2（最長1年6ヶ月）、障害年金2級は国が決めた基本の額に額面に応じた分を足して計算しています。額面の欄は、手取りからおよそ1.28倍して自動で入ります。給与明細の総支給額を入れ直すと、そちらが優先されます。年度の改定・加入期間・賞与・障害の等級によって変わります。障害年金3級に当たる場合は月およそ5.2万円の最低保障があります。正確な額はご自身の年金記録と加入先の健康保険組合で確認してください。手取りで計算しているため、税金と社会保険料はすでに引かれたものとして扱っています。各項目のグレーの目安はひとり暮らしの一般的な水準をもとにした参考値で、統計値ではありません。<br>
+    この資料は収入保障保険の考え方について理解していただく為に作成されたものであり、勧誘販売を目的としたものではありません。特定の保険商品の推奨・募集を行うものではなく、加入のお申し込みを受け付けるものでもありません。<br>
+    入力された数字はお使いの端末の中だけに保存され、外部に送信されることはありません。<br>
+    <b>Unicara株式会社</b>
+  </p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var GROUPS = [
+    {k:"home", n:"住まい・光熱", c:"--c1", stop:false,
+     note:"引っ越さないかぎり、まず動かせないお金。",
+     items:[
+      {k:"rent", n:"家賃・住宅ローン",     h:"目安 6〜8万円（ワンルーム）",        v:6.5},
+      {k:"mnt",  n:"管理費・共益費",       h:"目安 0〜1万円",                      v:0.5},
+      {k:"park", n:"駐車場代",             h:"目安 0〜2万円",                      v:0},
+      {k:"hins", n:"火災保険・更新料の積立", h:"2年で更新料1ヶ月分なら月0.3万円",   v:0.1},
+      {k:"elec", n:"電気",                 h:"目安 0.4〜1万円（季節で動く）",      v:0.6},
+      {k:"gas",  n:"ガス",                 h:"目安 0.3〜0.8万円",                  v:0.4},
+      {k:"watr", n:"水道",                 h:"目安 0.2〜0.4万円（2ヶ月分を月割り）", v:0.3},
+      {k:"fuel", n:"灯油・その他の燃料",   h:"寒い地域の冬だけ 0〜1万円",          v:0}
+     ]},
+    {k:"food", n:"食費", c:"--c2", stop:false,
+     note:"削れるけれど、ゼロにはなりません。",
+     items:[
+      {k:"groc", n:"家庭食（スーパー・宅配）", h:"目安 自炊中心3万／ほぼ買う5万", v:2.8},
+      {k:"out",  n:"外食",                     h:"目安 0.5〜2万円",               v:1.2},
+      {k:"lunch",n:"職場・学校での昼食",       h:"1食600円×20日で1.2万円",        v:0.8},
+      {k:"taste",n:"嗜好品",                   h:"お酒・タバコ・お菓子・コーヒー", v:0.5}
+     ]},
+    {k:"comm", n:"通信・交通", c:"--c3", stop:false,
+     note:"解約すれば減りますが、手続きが要るぶんすぐには止まりません。",
+     items:[
+      {k:"phone",n:"スマホ",             h:"目安 格安0.2万／キャリア0.8万",   v:0.4},
+      {k:"net",  n:"自宅のネット・Wi-Fi", h:"目安 0.4〜0.6万円",              v:0.5},
+      {k:"nhk",  n:"NHK受信料",          h:"地上波のみで月0.11万円ほど",      v:0.2},
+      {k:"train",n:"交通費",             h:"定期が自腹なら 0.5〜1.5万円",     v:0.8},
+      {k:"car",  n:"車・バイク",         h:"ガソリン・任意保険・車検の積立で1〜3万円", v:0}
+     ]},
+    {k:"care", n:"医療・衛生・被服", c:"--c4", stop:false,
+     note:"生きている限りかかる、こまごました生活費。",
+     items:[
+      {k:"med",  n:"医療費・薬・通院",       h:"目安 0〜0.5万円（持病があればもっと）", v:0.2},
+      {k:"hair", n:"理美容（散髪・美容院）", h:"目安 0.3〜1万円",                 v:0.4},
+      {k:"cosme",n:"化粧品・衛生用品",       h:"目安 0.2〜1万円",                 v:0.2},
+      {k:"daily",n:"日用品・消耗品",         h:"洗剤・ティッシュ・トイレ紙で0.3〜0.8万円", v:0.5},
+      {k:"cloth",n:"被服・靴・クリーニング", h:"目安 0.3〜1.5万円",               v:0.5},
+      {k:"furn", n:"家具・家電の買い替え積立", h:"年6万を積むなら月0.5万円",      v:0.2}
+     ]},
+    {k:"fam", n:"家族・教育", c:"--c5", stop:false,
+     note:"いない人は0のままで大丈夫です。",
+     items:[
+      {k:"nurs", n:"保育園・学費",       h:"目安 0〜5万円",            v:0},
+      {k:"juku", n:"塾・習い事",         h:"目安 0〜3万円",            v:0},
+      {k:"send", n:"仕送り・親への援助", h:"目安 0〜5万円",            v:0},
+      {k:"pet",  n:"ペット",             h:"えさ・トイレ・病院で0.5〜2万円", v:0}
+     ]},
+    {k:"flex", n:"遊び・交際・貯金", c:"--c6", stop:true,
+     note:"いざとなれば止められるお金。でもここを削った生活は長く続きません。",
+     items:[
+      {k:"hobby",n:"趣味・娯楽",       h:"ライブ・ゲーム・スポーツで0.5〜3万円", v:1},
+      {k:"subs", n:"サブスク",         h:"動画・音楽・ジムで0.2〜1.5万円",       v:0.5},
+      {k:"trip", n:"旅行・レジャーの積立", h:"年10万を積むなら月0.8万円",        v:0.3},
+      {k:"soc",  n:"交際費",           h:"飲み会・プレゼントで0.5〜2万円",       v:0.8},
+      {k:"cere", n:"冠婚葬祭の積立",   h:"年2回ご祝儀3万なら月0.5万円",          v:0.2},
+      {k:"game", n:"課金・ガチャ",     h:"目安 0〜2万円",                        v:0.2},
+      {k:"conv", n:"コンビニのちょい買い", h:"毎日500円なら1.5万円",             v:0.8},
+      {k:"unk",  n:"使途不明金",       h:"気づいたら減ってる分。0.5〜2万円",     v:0.5},
+      {k:"bank", n:"貯金",             h:"目安 手取りの1割",                     v:0.5},
+      {k:"inv",  n:"投資（NISA・iDeCo）", h:"目安 0〜3万円",                     v:0.5},
+      {k:"self", n:"自己投資",         h:"資格・書籍・セミナーで0〜2万円",       v:0.2}
+     ]},
+    {k:"debt", n:"返済・いまの保険料", c:"--c7", stop:false,
+     note:"働けなくなっても、返済だけは待ってくれません。",
+     items:[
+      {k:"schol",n:"奨学金の返済",       h:"月1.4万円くらいが多い",          v:1.4},
+      {k:"card", n:"カード・リボの返済", h:"目安 0〜3万円",                  v:0},
+      {k:"loan", n:"車・その他のローン", h:"目安 0〜3万円",                  v:0},
+      {k:"tax",  n:"税金の分割払い",     h:"住民税・国民年金などを自分で払う人", v:0},
+      {k:"ins",  n:"いまの保険料",       h:"医療・生命・共済など0〜1.5万円", v:0.3}
+     ]}
+  ];
+  var DEF = JSON.parse(JSON.stringify(GROUPS));
+  var DEFINC = {main:20, side:5, gross:25.6};
+  var KEY = "ugs-cashflow-v4";
+  var GROSS_RATIO = 1.28;
+  var folded = false;
+  var grossTouched = false;
+
+  var groupsEl = document.getElementById("groups");
+  var barEl = document.getElementById("bar");
+  var legEl = document.getElementById("legend");
+  var tilesEl = document.getElementById("tiles");
+  var inMain = document.getElementById("i-main");
+  var inSide = document.getElementById("i-side");
+  var inGross = document.getElementById("i-gross");
+  var foldBtn = document.getElementById("btn-fold");
+  var sumNow = document.getElementById("sum-now");
+  var sumGap = document.getElementById("sum-gap");
+  var savedEl = document.getElementById("saved");
+  var savedTimer = null;
+  var last = {};
+
+  function num(x){ var v = parseFloat(x); return isFinite(v) && v > 0 ? v : 0; }
+  function man(v){ return (Math.round(v*10)/10).toFixed(1) + "万円"; }
+  function signed(v){ return (v > 0 ? "+" : v < 0 ? "−" : "±") + man(Math.abs(v)); }
+  function sum(g){ return g.items.reduce(function(s,i){ return s + i.v; }, 0); }
+
+  function save(){
+    try{
+      localStorage.setItem(KEY, JSON.stringify({
+        inc:{main:num(inMain.value), side:num(inSide.value), gross:num(inGross.value), gt:grossTouched},
+        g:GROUPS.map(function(g){
+          return {k:g.k, stop:g.stop, i:g.items.map(function(i){ return {k:i.k, v:i.v}; })};
+        })
+      }));
+      flash("この端末に自動保存しました");
+    }catch(e){
+      flash("この端末では自動保存できません。スクリーンショットで残してください");
+    }
+  }
+  function flash(msg){
+    if(!savedEl) return;
+    savedEl.textContent = msg;
+    if(savedTimer) clearTimeout(savedTimer);
+    savedTimer = setTimeout(function(){ savedEl.textContent = ""; }, 2600);
+  }
+  function su(parent, k, v, cls){
+    var d = document.createElement("div"); d.className = "su" + (cls ? " " + cls : "");
+    var a = document.createElement("p"); a.className = "k"; a.textContent = k;
+    var b = document.createElement("p"); b.className = "v"; b.textContent = v;
+    d.appendChild(a); d.appendChild(b); parent.appendChild(d);
+  }
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY); if(!raw) return;
+      var d = JSON.parse(raw);
+      if(d && d.inc){
+        inMain.value = d.inc.main; inSide.value = d.inc.side;
+        if(d.inc.gross != null) inGross.value = d.inc.gross;
+        grossTouched = !!d.inc.gt;
+      }
+      if(d && d.g) d.g.forEach(function(sg){
+        var g = GROUPS.filter(function(x){ return x.k === sg.k; })[0]; if(!g) return;
+        g.stop = !!sg.stop;
+        (sg.i || []).forEach(function(si){
+          var it = g.items.filter(function(x){ return x.k === si.k; })[0];
+          if(it) it.v = si.v;
+        });
+      });
+    }catch(e){}
+  }
+
+  function buildGroups(){
+    groupsEl.textContent = "";
+    GROUPS.forEach(function(g){
+      var box = document.createElement("section");
+      box.className = "grp";
+      box.style.borderLeftColor = "var(" + g.c + ")";
+
+      var head = document.createElement("div"); head.className = "ghead";
+      var sw = document.createElement("span"); sw.className = "swatch";
+      sw.style.background = "var(" + g.c + ")"; sw.setAttribute("aria-hidden","true");
+      var h3 = document.createElement("h3"); h3.textContent = g.n;
+      var gs = document.createElement("span"); gs.className = "gsum"; gs.id = "gs-" + g.k;
+      var chip = document.createElement("button");
+      chip.type = "button"; chip.className = "chip";
+      chip.setAttribute("aria-pressed", String(g.stop));
+      chip.textContent = g.stop ? "止められる" : "止められない";
+      chip.setAttribute("aria-label", g.n + "：働けなくなったときに止められるか");
+      chip.addEventListener("click", function(){
+        g.stop = !g.stop;
+        chip.setAttribute("aria-pressed", String(g.stop));
+        chip.textContent = g.stop ? "止められる" : "止められない";
+        render(); save();
+      });
+      head.appendChild(sw); head.appendChild(h3); head.appendChild(gs); head.appendChild(chip);
+      box.appendChild(head);
+
+      var note = document.createElement("p"); note.className = "gnote"; note.textContent = g.note;
+      box.appendChild(note);
+
+      var rows = document.createElement("div"); rows.className = "rows";
+      g.items.forEach(function(it){
+        var row = document.createElement("div"); row.className = "row"; row.dataset.k = it.k;
+        var lab = document.createElement("label"); lab.setAttribute("for", "f-" + it.k);
+        lab.appendChild(document.createTextNode(it.n));
+        var hint = document.createElement("span"); hint.className = "hint"; hint.textContent = it.h;
+        lab.appendChild(hint);
+        var amt = document.createElement("span"); amt.className = "amt";
+        var inp = document.createElement("input");
+        inp.type = "number"; inp.id = "f-" + it.k; inp.min = "0"; inp.step = "0.1";
+        inp.inputMode = "decimal"; inp.value = it.v;
+        inp.addEventListener("input", function(){ it.v = num(inp.value); render(); save(); });
+        var u = document.createElement("span"); u.className = "unit"; u.textContent = "万円";
+        amt.appendChild(inp); amt.appendChild(u);
+        row.appendChild(lab); row.appendChild(amt);
+        rows.appendChild(row);
+      });
+      box.appendChild(rows);
+      groupsEl.appendChild(box);
+    });
+    applyFold();
+  }
+
+  function applyFold(){
+    GROUPS.forEach(function(g){
+      g.items.forEach(function(it){
+        var row = groupsEl.querySelector('[data-k="' + it.k + '"]');
+        if(row) row.classList.toggle("zero", folded && it.v === 0);
+      });
+    });
+  }
+
+  function tile(cls, when, got, need, cap){
+    var gap = need - got;
+    var d = document.createElement("div"); d.className = "tile " + cls;
+    var w = document.createElement("p"); w.className = "when"; w.textContent = when; d.appendChild(w);
+    [["入ってくるお金", man(got)], ["止められない支出", man(need)]].forEach(function(p){
+      var l = document.createElement("p"); l.className = "ln";
+      var a = document.createElement("span"); a.textContent = p[0];
+      var b = document.createElement("span"); b.textContent = p[1];
+      l.appendChild(a); l.appendChild(b); d.appendChild(l);
+    });
+    var big = document.createElement("p"); big.className = "big";
+    big.textContent = gap > 0 ? "足りない " + man(gap) : "足りている";
+    d.appendChild(big);
+    var c = document.createElement("p"); c.className = "cap"; c.textContent = cap; d.appendChild(c);
+    return d;
+  }
+
+  function render(){
+    var main = num(inMain.value), side = num(inSide.value);
+    var income = main + side;
+    var gross = num(inGross.value);
+    var out = 0, fixedNeed = 0, canStop = 0;
+    GROUPS.forEach(function(g){
+      var s = sum(g); out += s;
+      if(g.stop) canStop += s; else fixedNeed += s;
+      var el = document.getElementById("gs-" + g.k);
+      if(el) el.textContent = man(s);
+    });
+
+    document.getElementById("t-in").textContent = man(income);
+    document.getElementById("t-out").textContent = man(out);
+    document.getElementById("t-fixed").textContent = man(fixedNeed);
+    document.getElementById("t-stop").textContent = man(canStop);
+    var leftEl = document.getElementById("t-left");
+    leftEl.textContent = signed(income - out);
+    leftEl.className = "big" + (income - out >= 0 ? " ok" : "");
+
+    barEl.textContent = ""; legEl.textContent = "";
+    GROUPS.forEach(function(g){
+      var s = sum(g);
+      if(s > 0){
+        var seg = document.createElement("span");
+        seg.style.flex = s + " 0 0";
+        seg.style.background = "var(" + g.c + ")";
+        seg.setAttribute("aria-hidden","true");
+        barEl.appendChild(seg);
+      }
+      var lg = document.createElement("div"); lg.className = "lg";
+      var sw = document.createElement("span"); sw.className = "swatch";
+      sw.style.background = "var(" + g.c + ")"; sw.setAttribute("aria-hidden","true");
+      var n = document.createElement("span"); n.className = "n"; n.textContent = g.n;
+      var v = document.createElement("span"); v.className = "v"; v.textContent = man(s);
+      var p = document.createElement("span"); p.className = "p";
+      p.textContent = out > 0 ? Math.round(s / out * 100) + "%" : "0%";
+      lg.appendChild(sw); lg.appendChild(n); lg.appendChild(v); lg.appendChild(p);
+      legEl.appendChild(lg);
+    });
+    barEl.setAttribute("aria-label", "支出" + man(out) + "の内訳。" +
+      GROUPS.map(function(g){ return g.n + man(sum(g)); }).join("、"));
+
+    var sick = gross * 2 / 3;
+    var pension = 6.9 + gross * 0.137;
+    tilesEl.textContent = "";
+    tilesEl.appendChild(tile("t1", "はじめの1年6ヶ月（傷病手当金）", sick, fixedNeed,
+      "本業の額面のおよそ3分の2。副業の分は出ません。"));
+    tilesEl.appendChild(tile("t2", "そのあと　障害年金2級なら", pension, fixedNeed,
+      "家の中の生活はできるが、働いて収入を得るのは無理な状態。"));
+    tilesEl.appendChild(tile("t3", "そのあと　2級に届かないと", 0, fixedNeed,
+      "しんどいけれど基準に届かない場合。国からは出ません。"));
+
+    last = {income:income, out:out, left:income - out, need:fixedNeed, stop:canStop,
+            g1:Math.max(0, fixedNeed - sick), g2:Math.max(0, fixedNeed - pension), g3:fixedNeed,
+            groups:GROUPS.map(function(g){ return {n:g.n, v:sum(g), stop:g.stop}; })};
+
+    sumNow.textContent = ""; sumGap.textContent = "";
+    su(sumNow, "入ってくるお金", man(income));
+    su(sumNow, "出ていくお金", man(out));
+    su(sumNow, "残り", signed(income - out));
+    su(sumNow, "止められない支出", man(fixedNeed), "soft");
+    su(sumNow, "止められる支出", man(canStop), "soft");
+    su(sumGap, "はじめの1年6ヶ月に足りない額", man(last.g1));
+    su(sumGap, "障害年金2級なら足りない額", man(last.g2));
+    su(sumGap, "2級に届かないと足りない額", man(last.g3), "hi");
+
+    applyFold();
+  }
+
+  function copyText(){
+    var L = ["【じぶんのキャッシュフロー】",
+      "入ってくるお金　" + man(last.income),
+      "出ていくお金　　" + man(last.out),
+      "残り　　　　　　" + signed(last.left),
+      "",
+      "止められない支出　" + man(last.need),
+      "止められる支出　　" + man(last.stop),
+      "",
+      "【働けなくなったら足りない額】",
+      "はじめの1年6ヶ月　" + man(last.g1),
+      "障害年金2級なら　　" + man(last.g2),
+      "2級に届かないと　　" + man(last.g3),
+      "",
+      "【支出の内訳】"];
+    last.groups.forEach(function(g){
+      L.push(g.n + "　" + man(g.v) + (g.stop ? "（止められる）" : ""));
+    });
+    L.push("", "※ 目安の金額です。Unicara株式会社");
+    return L.join("\n");
+  }
+
+  function autoGross(){
+    if(grossTouched) return;
+    inGross.value = Math.round(num(inMain.value) * GROSS_RATIO * 10) / 10;
+  }
+  inMain.addEventListener("input", function(){ autoGross(); render(); save(); });
+  inSide.addEventListener("input", function(){ render(); save(); });
+  inGross.addEventListener("input", function(){ grossTouched = true; render(); save(); });
+  foldBtn.addEventListener("click", function(){
+    folded = !folded;
+    foldBtn.setAttribute("aria-pressed", String(folded));
+    foldBtn.textContent = folded ? "ぜんぶの行を表示" : "0の行をたたむ";
+    applyFold();
+  });
+  document.getElementById("btn-copy").addEventListener("click", function(){
+    var t = copyText();
+    function fallback(){
+      var ta = document.createElement("textarea");
+      ta.value = t;
+      ta.setAttribute("readonly", "readonly");
+      ta.style.position = "fixed"; ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select(); ta.setSelectionRange(0, t.length);
+      var done = false;
+      try{ done = document.execCommand("copy"); }catch(e){}
+      document.body.removeChild(ta);
+      flash(done ? "結果をコピーしました。メモやトークに貼り付けられます"
+                 : "コピーできませんでした。上のカードをスクリーンショットしてください");
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(function(){
+        flash("結果をコピーしました。メモやトークに貼り付けられます");
+      }, fallback);
+    } else { fallback(); }
+  });
+  document.getElementById("btn-reset").addEventListener("click", function(){
+    inMain.value = DEFINC.main; inSide.value = DEFINC.side; inGross.value = DEFINC.gross;
+    grossTouched = false;
+    GROUPS.forEach(function(g, gi){
+      g.stop = DEF[gi].stop;
+      g.items.forEach(function(it, ii){ it.v = DEF[gi].items[ii].v; });
+    });
+    buildGroups(); render(); save();
+  });
+  document.getElementById("btn-clear").addEventListener("click", function(){
+    inMain.value = 0; inSide.value = 0; inGross.value = 0;
+    grossTouched = false;
+    GROUPS.forEach(function(g){ g.items.forEach(function(it){ it.v = 0; }); });
+    buildGroups(); render(); save();
+  });
+
+  load();
+  buildGroups();
+  render();
+})();
+</script>
+</body>
+</html>
